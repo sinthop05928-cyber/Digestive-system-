@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>เกมระบบย่อยอาหาร</title>
+
+<style>
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  font-family:Arial,"Noto Sans Thai",sans-serif;
+  background:#071b2e;
+  color:white;
+  overflow:hidden;
+}
+
+.screen{
+  position:fixed;
+  inset:0;
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  text-align:center;
+}
+
+.screen.active{
+  display:flex;
+}
+
+button{
+  border:0;
+  border-radius:16px;
+  padding:14px 20px;
+  font-size:17px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.primary{
+  background:#ffe45c;
+  color:#102030;
+}
+
+#home{
+  background:linear-gradient(160deg,#073052,#008b91);
+}
+
+#home h1{
+  font-size:45px;
+}
+
+#foodScreen{
+  background:linear-gradient(160deg,#172b49,#087f8c);
+}
+
+.foodChoice{
+  margin:6px;
+  min-width:140px;
+}
+
+.foodChoice.selected{
+  background:#ffe45c;
+  outline:4px solid white;
+}
+
+#cameraScreen{
+  background:#000;
+  padding:0;
+  justify-content:flex-start;
+}
+
+#video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+}
+
+#filterCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+
+.topbar{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  z-index:5;
+  padding:12px;
+  display:flex;
+  justify-content:space-between;
+}
+
+.badge{
+  background:#000b;
+  padding:9px 12px;
+  border-radius:14px;
+  font-weight:bold;
+}
+
+#filterSelect{
+  position:absolute;
+  bottom:15px;
+  left:5px;
+  right:5px;
+  z-index:5;
+  display:flex;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+
+.filterBtn{
+  font-size:14px;
+  padding:9px 11px;
+}
+
+.filterBtn.selected{
+  background:#ffe45c;
+}
+
+#startStage{
+  position:absolute;
+  bottom:100px;
+  z-index:6;
+}
+
+#questionPanel{
+  position:absolute;
+  left:8px;
+  right:8px;
+  bottom:8px;
+  z-index:10;
+  background:#071b2ef5;
+  border-radius:22px;
+  padding:14px;
+  display:none;
+}
+
+#questionPanel.show{
+  display:block;
+}
+
+#timer{
+  color:#ffe45c;
+  font-size:27px;
+  font-weight:bold;
+}
+
+#question{
+  font-size:18px;
+  font-weight:bold;
+}
+
+.answers{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.answer{
+  font-size:14px;
+  background:white;
+  color:#102030;
+  box-shadow:none;
+}
+
+.answer.correct{
+  background:#46e58a;
+}
+
+.answer.wrong{
+  background:#ff6565;
+}
+
+#message{
+  position:absolute;
+  z-index:20;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  background:#000e;
+  padding:22px;
+  border-radius:20px;
+  font-size:24px;
+  font-weight:bold;
+  display:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- หน้าแรก -->
+<section id="home" class="screen active">
+
+  <div style="font-size:70px">🧬</div>
+
+  <h1>เกมระบบย่อยอาหาร</h1>
+
+  <p>
+    เลือกอาหารของเจ้า<br>
+    แล้วเดินทางผ่านระบบย่อยอาหารทั้ง 5 ด่าน
+  </p>
+
+  <button class="primary" onclick="openCamera()">
+    เริ่มเกม
+  </button>
+
+</section>
+
+
+<!-- เลือกฟิลเตอร์ -->
+<section id="foodScreen" class="screen">
+
+  <h2>เลือกฟิลเตอร์ของเจ้า</h2>
+
+  <p>มีฟิลเตอร์ให้เลือก 4 อย่าง</p>
+
+  <div>
+
+    <button class="foodChoice"
+      data-food="sticky"
+      onclick="chooseFood(this)">
+      🍚 ข้าวเหนียว
+    </button>
+
+    <button class="foodChoice"
+      data-food="cabbage"
+      onclick="chooseFood(this)">
+      🥬 กะหล่ำปลี
+    </button>
+
+    <button class="foodChoice"
+      data-food="chicken"
+      onclick="chooseFood(this)">
+      🍗 ไก่ย่าง
+    </button>
+
+    <button class="foodChoice"
+      data-food="butter"
+      onclick="chooseFood(this)">
+      🧈 เนย
+    </button>
+
+  </div>
+
+  <br>
+
+  <button class="primary" onclick="beginGame()">
+    ยืนยันอาหาร
+  </button>
+
+</section>
+
+
+<!-- เกม -->
+<section id="cameraScreen" class="screen">
+
+  <video id="video" autoplay playsinline muted></video>
+
+  <canvas id="filterCanvas"></canvas>
+
+  <div class="topbar">
+
+    <div class="badge" id="stageTitle">
+      ด่าน 1 — ปาก
+    </div>
+
+    <div class="badge" id="score">
+      คะแนน 0
+    </div>
+
+  </div>
+
+  <div id="message"></div>
+
+
+  <!-- เลือกฟิลเตอร์ -->
+  <div id="filterSelect">
+
+    <button class="filterBtn"
+      data-food="sticky"
+      onclick="switchFood('sticky')">
+      🍚 ข้าวเหนียว
+    </button>
+
+    <button class="filterBtn"
+      data-food="cabbage"
+      onclick="switchFood('cabbage')">
+      🥬 กะหล่ำปลี
+    </button>
+
+    <button class="filterBtn"
+      data-food="chicken"
+      onclick="switchFood('chicken')">
+      🍗 ไก่ย่าง
+    </button>
+
+    <button class="filterBtn"
+      data-food="butter"
+      onclick="switchFood('butter')">
+      🧈 เนย
+    </button>
+
+  </div>
+
+
+  <button id="startStage"
+    class="primary"
+    onclick="startStage()">
+    เริ่มด่าน
+  </button>
+
+
+  <!-- คำถาม -->
+  <div id="questionPanel">
+
+    <div id="timer">
+      10
+    </div>
+
+    <p id="question"></p>
+
+    <div class="answers" id="answers"></div>
+
+  </div>
+
+</section>
+
+
+<!-- จบเกม -->
+<section id="finish" class="screen">
+
+  <div style="font-size:70px">🏆</div>
+
+  <h1>ภารกิจสำเร็จ!</h1>
+
+  <p>
+    เจ้าเดินทางผ่านระบบย่อยอาหารครบทั้ง 5 ด่านแล้ว
+  </p>
+
+  <h2 id="finalScore">
+    คะแนน 0
+  </h2>
+
+  <button class="primary"
+    onclick="location.reload()">
+    เล่นใหม่
+  </button>
+
+</section>
+
+
+<script>
+
+const video =
+document.getElementById("video");
+
+const canvas =
+document.getElementById("filterCanvas");
+
+const ctx =
+canvas.getContext("2d");
+
+
+let stream = null;
+
+let food = null;
+
+let stage = 0;
+
+let score = 0;
+
+let timer = null;
+
+let timeLeft = 10;
+
+let stageRunning = false;
+
+
+const stages = [
+
+  "ปาก",
+
+  "หลอดอาหาร",
+
+  "กระเพาะอาหาร",
+
+  "ลำไส้เล็ก",
+
+  "ลำไส้ใหญ่"
+
+];
+
+
+function showScreen(id){
+
+  document
+  .querySelectorAll(".screen")
+  .forEach(x =>
+    x.classList.remove("active")
+  );
+
+  document
+  .getElementById(id)
+  .classList.add("active");
+
+}
+
+
+async function openCamera(){
+
+  try{
+
+    stream =
+    await navigator.mediaDevices
+    .getUserMedia({
+
+      video:{
+        facingMode:"user"
+      },
+
+      audio:false
+
+    });
+
+    video.srcObject = stream;
+
+    showScreen("foodScreen");
+
+  }
+
+  catch(error){
+
+    alert(
+      "ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการใช้กล้อง"
+    );
+
+  }
+
+}
+
+
+function chooseFood(button){
+
+  document
+  .querySelectorAll(".foodChoice")
+  .forEach(x =>
+    x.classList.remove("selected")
+  );
+
+  button.classList.add("selected");
+
+  food =
+  button.dataset.food;
+
+}
+
+
+function switchFood(selectedFood){
+
+  food = selectedFood;
+
+  document
+  .querySelectorAll(".filterBtn")
+  .forEach(button => {
+
+    button.classList.toggle(
+      "selected",
+      button.dataset.food === food
+    );
+
+  });
+
+}
+
+
+function beginGame(){
+
+  if(!food){
+
+    alert("กรุณาเลือกฟิลเตอร์ก่อน");
+
+    return;
+
+  }
+
+  showScreen("cameraScreen");
+
+  stage = 0;
+
+  score = 0;
+
+  updateUI();
+
+  resizeCanvas();
+
+  drawFilter();
+
+}
+
+
+function updateUI(){
+
+  document.getElementById("stageTitle")
+  .textContent =
+  "ด่าน " +
+  (stage + 1) +
+  " — " +
+  stages[stage];
+
+  document.getElementById("score")
+  .textContent =
+  "คะแนน " + score;
+
+
+  document
+  .querySelectorAll(".filterBtn")
+  .forEach(button => {
+
+    button.classList.toggle(
+      "selected",
+      button.dataset.food === food
+    );
+
+  });
+
+}
+
+
+function resizeCanvas(){
+
+  canvas.width =
+  window.innerWidth;
+
+  canvas.height =
+  window.innerHeight;
+
+}
+
+
+window.addEventListener(
+  "resize",
+  resizeCanvas
+);
+
+
+/* ฟิลเตอร์ */
+
+function drawFilter(){
+
+  if(
+    document
+    .getElementById("cameraScreen")
+    .classList.contains("active")
+  ){
+
+    ctx.clearRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+
+    const centerX =
+    canvas.width / 2;
+
+    const centerY =
+    canvas.height * 0.38;
+
+
+    ctx.save();
+
+    ctx.textAlign = "center";
+
+    ctx.textBaseline = "middle";
+
+
+    let size =
+    Math.min(
+      canvas.width * 0.28,
+      170
+    );
+
+
+    ctx.font =
+    size + "px serif";
+
+
+    if(food === "sticky"){
+
+      ctx.fillText(
+        "🍚",
+        centerX,
+        centerY
+      );
+
+      ctx.font =
+      (size * 0.55) +
+      "px serif";
+
+      ctx.fillText(
+        "🧺",
+        centerX,
+        centerY + size * .62
+      );
+
+    }
+
+
+    if(food === "cabbage"){
+
+      ctx.fillText(
+        "🥬",
+        centerX,
+        centerY
+      );
+
+    }
+
+
+    if(food === "chicken"){
+
+      ctx.fillText(
+        "🍗",
+        centerX,
+        centerY
+      );
+
+
+      ctx.strokeStyle =
+      "#b88745";
+
+      ctx.lineWidth = 7;
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        centerX - size * .65,
+        centerY + size * .55
+      );
+
+      ctx.lineTo(
+        centerX + size * .65,
+        centerY - size * .55
+      );
+
+      ctx.stroke();
+
+    }
+
+
+    if(food === "butter"){
+
+      ctx.fillText(
+        "🧈",
+        centerX,
+        centerY
+      );
+
+    }
+
+
+    ctx.restore();
+
+  }
+
+  requestAnimationFrame(drawFilter);
+
+}
+
+
+/* เริ่มด่าน */
+
+function startStage(){
+
+  if(stageRunning)
+    return;
+
+
+  stageRunning = true;
+
+  document
+  .getElementById("startStage")
+  .style.display = "none";
+
+
+  if(stage === 0)
+    mouthEffect();
+
+  if(stage === 1)
+    esophagusEffect();
+
+  if(stage === 2)
+    stomachEffect();
+
+  if(stage === 3)
+    smallIntestineEffect();
+
+  if(stage === 4)
+    largeIntestineEffect();
+
+
+  setTimeout(
+    showQuestion,
+    1500
+  );
+
+}
+
+
+/* คำถาม */
+
+function showQuestion(){
+
+  let question = "";
+
+  let options = [];
+
+  let correct = 0;
+
+
+  /* ด่าน 1 ปาก */
+
+  if(stage === 0){
+
+    if(food === "sticky"){
+
+      question =
+      "เหตุใดเจ้าจึงละลายเช่นนี้?";
+
+      options = [
+
+        "ข้าถูกฟันบดและเอนไซม์อะไมเลสย่อย",
+
+        "ในนี้มันร้อนมาก ข้าจึงละลาย",
+
+        "ข้าถูกฟันบดอย่างเดียว ซึ่งเป็นการย่อยเชิงกล",
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อยอย่างเดียว ซึ่งเป็นการย่อยเชิงเคมี"
+
+      ];
+
+      correct = 0;
+
+    }
+
+    else{
+
+      question =
+      "เหตุใดเจ้าจึงถูกบดเช่นนี้?";
+
+      options = [
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อย ซึ่งเป็นการย่อยเชิงเคมี",
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อย ซึ่งเป็นการย่อยเชิงกล",
+
+        "ข้าถูกฟันบดอย่างเดียว ซึ่งเป็นการย่อยเชิงกล",
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อยอย่างเดียว ซึ่งเป็นการย่อยเชิงเคมี"
+
+      ];
+
+      correct = 2;
+
+    }
+
+  }
+
+
+  /* ด่าน 2 หลอดอาหาร */
+
+  else if(stage === 1){
+
+    question =
+    "เหตุใดเจ้าถึงกำลังจะร่วงเช่นนี้?";
+
+    options = [
+
+      "ข้าถูกเอนไซม์อะไมเลสย่อย ซึ่งเป็นการย่อยเชิงเคมี",
+
+      "ข้าถูกเอนไซม์อะไมเลสย่อย ซึ่งเป็นการย่อยเชิงกล",
+
+      "ข้าตกลงตามแรงโน้มถ่วง",
+
+      "ข้าถูกหลอดอาหารบีบและคลายตัวจึงเป็นเช่นนี้"
+
+    ];
+
+    correct = 3;
+
+  }
+
+
+  /* ด่าน 3 กระเพาะอาหาร */
+
+  else if(stage === 2){
+
+    /* ข้าวเหนียว */
+
+    if(food === "sticky"){
+
+      question =
+      "เหตุใดเจ้าจึงไม่เป็นอะไรเลย?";
+
+      options = [
+
+        "ในด่านนี้ ข้าจะไม่ถูกย่อย",
+
+        "ข้าถูกฟันบด",
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อย",
+
+        "ข้าถูกเอนไซม์เพปซินย่อย"
+
+      ];
+
+      correct = 0;
+
+    }
+
+
+    /* กะหล่ำปลี */
+
+    else if(food === "cabbage"){
+
+      question =
+      "เหตุใดเจ้าจึงไม่เป็นอะไรเลย?";
+
+      options = [
+
+        "ในด่านนี้ ข้าจะไม่ถูกย่อย",
+
+        "ข้าถูกเอนไซม์เพปซินย่อย",
+
+        "ข้าถูกกรดย่อยจนหมด",
+
+        "ข้าถูกน้ำลายย่อย"
+
+      ];
+
+      correct = 0;
+
+    }
+
+
+    /* เนย */
+
+    else if(food === "butter"){
+
+      question =
+      "ทำไมเจ้าถึงแตกตัวออกมาเช่นนี้?";
+
+      options = [
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อย",
+
+        "ข้าถูกเอนไซม์เพปซินย่อย",
+
+        "ข้าถูกเอนไซม์ไลเปสทำให้ข้าแตกตัวออกมา",
+
+        "ข้าถูกฟันบด"
+
+      ];
+
+      correct = 2;
+
+    }
+
+
+    /* ไก่ย่าง */
+
+    else{
+
+      question =
+      "เหตุใดเจ้าจึงถูกย่อยเช่นนี้?";
+
+      options = [
+
+        "ข้าถูกเอนไซม์อะไมเลสย่อย",
+
+        "ข้าถูกเอนไซม์เพปซินช่วยย่อยโปรตีนในกระเพาะอาหาร",
+
+        "ข้าถูกน้ำลายย่อยจนหมด",
+
+        "ข้าถูกแรงโน้มถ่วงย่อย"
+
+      ];
+
+      correct = 1;
+
+    }
+
+  }
+
+
+  /* ด่าน 4 ลำไส้เล็ก */
+
+  else if(stage === 3){
+
+    if(food === "cabbage"){
+
+      question =
+      "เหตุใดเจ้าจึงไม่ถูกย่อย แต่ยังมีสารอาหารถูกดูดซึม?";
+
+      options = [
+
+        "เพราะลำไส้เล็กดูดซึมสารอาหารเข้าสู่ร่างกาย",
+
+        "เพราะกระเพาะอาหารดูดซึมสารอาหาร",
+
+        "เพราะหลอดอาหารดูดซึมสารอาหาร",
+
+        "เพราะลำไส้ใหญ่ย่อยอาหาร"
+
+      ];
+
+      correct = 0;
+
+    }
+
+    else{
+
+      question =
+      "สารอาหารของเจ้าถูกดูดซึมที่ใด?";
+
+      options = [
+
+        "ปาก",
+
+        "กระเพาะอาหาร",
+
+        "ลำไส้เล็ก",
+
+        "ลำไส้ใหญ่"
+
+      ];
+
+      correct = 2;
+
+    }
+
+  }
+
+
+  /* ด่าน 5 ลำไส้ใหญ่ */
+
+  else{
+
+    question =
+    "เหตุใดน้ำจึงค่อย ๆ หายไปจากตัวข้า?";
+
+    options = [
+
+      "เพราะฟันกำลังบดข้า",
+
+      "เพราะน้ำลายกำลังย่อยข้า",
+
+      "เพราะกระเพาะอาหารกำลังบีบข้า",
+
+      "เพราะลำไส้ใหญ่ดูดซึมน้ำกลับเข้าสู่ร่างกาย"
+
+    ];
+
+    correct = 3;
+
+  }
+
+
+  document
+  .getElementById("question")
+  .textContent = question;
+
+
+  const answers =
+  document.getElementById("answers");
+
+
+  answers.innerHTML = "";
+
+
+  options.forEach(
+    (text,index) => {
+
+      const button =
+      document.createElement("button");
+
+      button.className =
+      "answer";
+
+      button.textContent =
+      (index + 1) +
+      ". " +
+      text;
+
+
+      button.onclick =
+      () =>
+      answer(
+        index === correct,
+        button
+      );
+
+
+      answers.appendChild(button);
+
+    }
+  );
+
+
+  document
+  .getElementById("questionPanel")
+  .classList.add("show");
+
+
+  timeLeft = 10;
+
+  document
+  .getElementById("timer")
+  .textContent = timeLeft;
+
+
+  timer =
+  setInterval(() => {
+
+    timeLeft--;
+
+    document
+    .getElementById("timer")
+    .textContent =
+    timeLeft;
+
+
+    if(timeLeft <= 0){
+
+      clearInterval(timer);
+
+      answer(false,null);
+
+    }
+
+  },1000);
+
+}
+
+
+/* ตรวจคำตอบ */
+
+function answer(correct,button){
+
+  if(!stageRunning)
+    return;
+
+
+  clearInterval(timer);
+
+  stageRunning = false;
+
+
+  document
+  .querySelectorAll(".answer")
+  .forEach(x =>
+    x.disabled = true
+  );
+
+
+  if(button){
+
+    button.classList.add(
+      correct ?
+      "correct" :
+      "wrong"
+    );
+
+  }
+
+
+  if(correct){
+
+    score += 10;
+
+    updateUI();
+
+    showMessage(
+      "✅ ถูกต้อง!"
+    );
+
+
+    setTimeout(() => {
+
+      hideMessage();
+
+      nextStage();
+
+    },900);
+
+  }
+
+  else{
+
+    showMessage(
+      "❌ ผิดหรือหมดเวลา! เริ่มด่านนี้ใหม่"
+    );
+
+
+    setTimeout(() => {
+
+      hideMessage();
+
+      document
+      .getElementById("questionPanel")
+      .classList.remove("show");
+
+
+      document
+      .getElementById("startStage")
+      .style.display = "block";
+
+    },1200);
+
+  }
+
+}
+
+
+/* ไปด่านต่อไป */
+
+function nextStage(){
+
+  document
+  .getElementById("questionPanel")
+  .classList.remove("show");
+
+
+  if(stage < 4){
+
+    stage++;
+
+    updateUI();
+
+    document
+    .getElementById("startStage")
+    .style.display = "block";
+
+  }
+
+  else{
+
+    document
+    .getElementById("finalScore")
+    .textContent =
+    "คะแนน " + score;
+
+    showScreen("finish");
+
+  }
+
+}
+
+
+/* เอฟเฟกต์ข้อความ */
+
+function showMessage(text){
+
+  const message =
+  document.getElementById("message");
+
+  message.textContent = text;
+
+  message.style.display =
+  "block";
+
+}
+
+
+function hideMessage(){
+
+  document
+  .getElementById("message")
+  .style.display = "none";
+
+}
+
+
+/* เอฟเฟกต์ด่าน 1 */
+
+function mouthEffect(){
+
+  let start =
+  Date.now();
+
+
+  function animate(){
+
+    if(!stageRunning)
+      return;
+
+
+    const elapsed =
+    (Date.now() - start) / 1000;
+
+
+    ctx.save();
+
+    ctx.strokeStyle =
+    "#8ee8ff";
+
+    ctx.lineWidth = 8;
+
+    ctx.lineCap = "round";
+
+
+    for(
+      let i=0;
+      i<8;
+      i++
+    ){
+
+      let x =
+      canvas.width*.18 +
+      i*canvas.width*.09;
+
+      let y =
+      (elapsed*130 +
+      i*55)
+      %
+      (canvas.height*.55);
+
+
+      ctx.beginPath();
+
+      ctx.moveTo(x,y);
+
+      ctx.lineTo(
+        x,
+        y+55
+      );
+
+      ctx.stroke();
+
+    }
+
+
+    ctx.restore();
+
+    requestAnimationFrame(
+      animate
+    );
+
+  }
+
+
+  animate();
+
+}
+
+
+/* เอฟเฟกต์หลอดอาหาร */
+
+function esophagusEffect(){
+
+  let start =
+  Date.now();
+
+
+  function animate(){
+
+    if(!stageRunning)
+      return;
+
+
+    const y =
+    canvas.height*.18 +
+    (
+      (Date.now()-start)/1000*80
+    ) %
+    (canvas.height*.45);
+
+
+    ctx.save();
+
+    ctx.strokeStyle =
+    "#ffb36b";
+
+    ctx.lineWidth = 18;
+
+    ctx.lineCap = "round";
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      canvas.width/2,
+      y
+    );
+
+    ctx.lineTo(
+      canvas.width/2,
+      y+55
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+
+
+    requestAnimationFrame(
+      animate
+    );
+
+  }
+
+
+  animate();
+
+}
+
+
+/* เอฟเฟกต์กระเพาะ */
+
+function stomachEffect(){
+
+  ctx.save();
+
+  ctx.fillStyle =
+  "#ff6b6b55";
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    canvas.width/2,
+    canvas.height*.45,
+    canvas.width*.25,
+    canvas.height*.22,
+    0,
+    0,
+    Math.PI*2
+  );
+
+  ctx.fill();
+
+  ctx.restore();
+
+}
+
+
+/* เอฟเฟกต์ลำไส้เล็ก */
+
+function smallIntestineEffect(){
+
+  ctx.save();
+
+  ctx.strokeStyle =
+  "#ffd166";
+
+  ctx.lineWidth = 9;
+
+  ctx.beginPath();
+
+
+  for(
+    let i=0;
+    i<7;
+    i++
+  ){
+
+    let y =
+    canvas.height*.35 +
+    i*22;
+
+
+    ctx.moveTo(
+      canvas.width*.2,
+      y
+    );
+
+
+    ctx.bezierCurveTo(
+      canvas.width*.8,
+      y-35,
+      canvas.width*.8,
+      y+35,
+      canvas.width*.2,
+      y+70
+    );
+
+  }
+
+
+  ctx.stroke();
+
+  ctx.restore();
+
+}
+
+
+/* เอฟเฟกต์ลำไส้ใหญ่ */
+
+function largeIntestineEffect(){
+
+  ctx.save();
+
+  ctx.strokeStyle =
+  "#8be28b";
+
+  ctx.lineWidth = 20;
+
+  ctx.strokeRect(
+    canvas.width*.18,
+    canvas.height*.25,
+    canvas.width*.64,
+    canvas.height*.42
+  );
+
+  ctx.restore();
+
+}
+
+</script>
+
+</body>
+</html>
